@@ -6,19 +6,26 @@ import { createServer } from 'http';
 const PORT = process.env.PORT || 3000;
 const SECRET = process.env.PROXY_SECRET || '';
 
-const PORKBUN_BASE  = 'https://api.porkbun.com/api/json/v3';
+const PORKBUN_BASE   = 'https://api.porkbun.com/api/json/v3';
 const NAMECHEAP_BASE = 'https://api.namecheap.com/xml.response';
+const NAMESILO_BASE  = 'https://www.namesilo.com/api';
 
 const server = createServer(async (req, res) => {
-  // GET /myip → このサーバーの外部IPを返す（Namecheapホワイトリスト登録用）
+  // GET /myip → このサーバーの外部IPを返す（Namecheapホワイトリスト登録用 + ウォームアップ確認用）
   if (req.method === 'GET' && req.url === '/myip') {
     try {
       const ipRes = await fetch('https://checkip.amazonaws.com/');
       const ip = (await ipRes.text()).trim();
-      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.writeHead(200, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',  // ブラウザからの直接アクセス（ウォームアップ）を許可
+      });
       res.end(JSON.stringify({ ip }));
     } catch (e) {
-      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.writeHead(500, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      });
       res.end(JSON.stringify({ error: e.message }));
     }
     return;
@@ -73,6 +80,17 @@ const server = createServer(async (req, res) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body || '',
+      };
+    } else if (req.url.startsWith('/namesilo')) {
+      // NameSilo: GET ベース API
+      // /namesilo/getPrices → https://www.namesilo.com/api/getPrices
+      // body はクエリ文字列（key=xxx&version=1&type=json&...）
+      const path = req.url.replace(/^\/namesilo/, '') || '/getPrices';
+      const qs = body ? `?${body}` : '';
+      targetUrl = `${NAMESILO_BASE}${path}${qs}`;
+      fetchOptions = {
+        method: 'GET',
+        headers: { 'Accept': 'application/json', 'User-Agent': 'MassSite/1.0' },
       };
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
