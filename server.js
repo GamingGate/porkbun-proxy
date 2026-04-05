@@ -9,6 +9,7 @@ const SECRET = process.env.PROXY_SECRET || '';
 const PORKBUN_BASE   = 'https://api.porkbun.com/api/json/v3';
 const NAMECHEAP_BASE = 'https://api.namecheap.com/xml.response';
 const NAMESILO_BASE  = 'https://www.namesilo.com/api';
+const DNA_BASE       = 'https://rest-api.domainnameapi.com';
 
 const server = createServer(async (req, res) => {
   // GET /myip → このサーバーの外部IPを返す（Namecheapホワイトリスト登録用 + ウォームアップ確認用）
@@ -91,6 +92,21 @@ const server = createServer(async (req, res) => {
       fetchOptions = {
         method: 'GET',
         headers: { 'Accept': 'application/json', 'User-Agent': 'MassSite/1.0' },
+      };
+    } else if (req.url.startsWith('/dna')) {
+      // Domain Name API (DNA): REST API
+      // GET  /dna/tld/list  → https://rest-api.domainnameapi.com/tld/list
+      // POST /dna/domain/register → https://rest-api.domainnameapi.com/domain/register
+      const path = req.url.replace(/^\/dna/, '') || '/tld/list';
+      targetUrl = `${DNA_BASE}${path}`;
+      const dnaMethod = (req.method === 'POST' && body) ? 'POST' : 'GET';
+      fetchOptions = {
+        method: dnaMethod,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        ...(dnaMethod === 'POST' && body ? { body } : {}),
       };
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
