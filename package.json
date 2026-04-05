@@ -1,0 +1,12 @@
+{
+  "name": "porkbun-proxy",
+  "version": "1.0.0",
+  "description": "Proxy server to bypass Cloudflare WAF when calling Porkbun API",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node server.js"
+  }
+}
