@@ -102,21 +102,37 @@ const server = createServer(async (req, res) => {
       const isGetEndpoint = GET_ENDPOINTS.some(ep => path === ep || path.startsWith(ep + '?'));
 
       if (isGetEndpoint) {
-        // BodyのJSONをクエリパラメータに変換してGETで転送
+        // BodyのJSONをクエリパラメータ＋Basic Authヘッダーに変換してGETで転送
         let params = {};
         try { params = JSON.parse(body || '{}'); } catch { /* ignore */ }
         const qs = new URLSearchParams(params).toString();
         targetUrl = `${DNA_BASE}${path}${qs ? '?' + qs : ''}`;
+        // Basic Auth ヘッダーも付与（UserName:Password を base64 エンコード）
+        const dnaUser = params['UserName'] || params['username'] || '';
+        const dnaPass = params['Password'] || params['password'] || '';
+        const basicAuth = dnaUser ? 'Basic ' + Buffer.from(`${dnaUser}:${dnaPass}`).toString('base64') : '';
         fetchOptions = {
           method: 'GET',
-          headers: { 'Accept': 'application/json' },
+          headers: {
+            'Accept': 'application/json',
+            ...(basicAuth ? { 'Authorization': basicAuth } : {}),
+          },
         };
       } else {
-        // POST エンドポイント: JSONボディをそのまま転送
+        // POST エンドポイント: JSONボディをそのまま転送（Basic Authも付与）
+        let params = {};
+        try { params = JSON.parse(body || '{}'); } catch { /* ignore */ }
+        const dnaUser = params['UserName'] || params['username'] || '';
+        const dnaPass = params['Password'] || params['password'] || '';
+        const basicAuth = dnaUser ? 'Basic ' + Buffer.from(`${dnaUser}:${dnaPass}`).toString('base64') : '';
         targetUrl = `${DNA_BASE}${path}`;
         fetchOptions = {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            ...(basicAuth ? { 'Authorization': basicAuth } : {}),
+          },
           body: body || '{}',
         };
       }
