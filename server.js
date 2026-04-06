@@ -95,19 +95,31 @@ const server = createServer(async (req, res) => {
       };
     } else if (req.url.startsWith('/dna')) {
       // Domain Name API (DNA): REST API
-      // GET  /dna/tld/list  → https://rest-api.domainnameapi.com/tld/list
-      // POST /dna/domain/register → https://rest-api.domainnameapi.com/domain/register
+      // GET エンドポイント: /tld/list（認証はクエリパラメータ）
+      // POST エンドポイント: /domain/register, /domain/modifynameserver（認証はJSONボディ）
+      const GET_ENDPOINTS = ['/tld/list'];
       const path = req.url.replace(/^\/dna/, '') || '/tld/list';
-      targetUrl = `${DNA_BASE}${path}`;
-      const dnaMethod = (req.method === 'POST' && body) ? 'POST' : 'GET';
-      fetchOptions = {
-        method: dnaMethod,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        ...(dnaMethod === 'POST' && body ? { body } : {}),
-      };
+      const isGetEndpoint = GET_ENDPOINTS.some(ep => path === ep || path.startsWith(ep + '?'));
+
+      if (isGetEndpoint) {
+        // BodyのJSONをクエリパラメータに変換してGETで転送
+        let params = {};
+        try { params = JSON.parse(body || '{}'); } catch { /* ignore */ }
+        const qs = new URLSearchParams(params).toString();
+        targetUrl = `${DNA_BASE}${path}${qs ? '?' + qs : ''}`;
+        fetchOptions = {
+          method: 'GET',
+          headers: { 'Accept': 'application/json' },
+        };
+      } else {
+        // POST エンドポイント: JSONボディをそのまま転送
+        targetUrl = `${DNA_BASE}${path}`;
+        fetchOptions = {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+          body: body || '{}',
+        };
+      }
     } else {
       res.writeHead(404, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'Unknown proxy route' }));
