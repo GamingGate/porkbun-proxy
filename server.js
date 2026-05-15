@@ -68,9 +68,15 @@ const server = createServer(async (req, res) => {
       // Porkbun: /porkbun/domain/create → https://api.porkbun.com/api/json/v3/domain/create
       const path = req.url.replace(/^\/porkbun/, '') || '/ping';
       targetUrl = `${PORKBUN_BASE}${path}`;
+      const idempotencyKey = req.headers['idempotency-key'];
+      const requestId = req.headers['x-request-id'];
       fetchOptions = {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(typeof idempotencyKey === 'string' && idempotencyKey.trim() !== '' ? { 'Idempotency-Key': idempotencyKey } : {}),
+          ...(typeof requestId === 'string' && requestId.trim() !== '' ? { 'X-Request-Id': requestId } : {}),
+        },
         body: body || '{}',
       };
     } else if (req.url.startsWith('/namecheap')) {
